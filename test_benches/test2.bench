@@ -1,0 +1,12 @@
+input(a)
+input(b)
+input(c)
+
+output(y)
+output(z)
+
+g = AND(a, b)
+i = NOT(g)
+k = OR(g, c)
+y = NAND(i, k)
+z = BUFF(k)

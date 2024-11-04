@@ -1,0 +1,18 @@
+input(a)
+input(b)
+input(c)
+input(d)
+input(e)
+
+output(y)
+output(z)
+
+g = NAND(a, b)
+h = NOR(b, c, d)
+i = NOT(d)
+
+j = NOR(g, h)
+k = NAND(h, i)
+
+y = NAND(j, k)
+z = NOR(k, e)
