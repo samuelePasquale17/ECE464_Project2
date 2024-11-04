@@ -4,6 +4,8 @@ from collections import deque # library needed for queue
 from enum import Enum # enumeration to define the possible gate types
 from itertools import chain # to iterate over dictionary
 import random # for the random test vector generation
+import matplotlib.pyplot as plt # for plotting the cmp between Monte-Carlo sim and SCOAP controllability
+import numpy as np
 
 
 # Define the gate types enumeration, any gate in bench files has to be declared in this class
@@ -349,7 +351,7 @@ def circuit_parsing(file_name, ret_fault_list=False, ret_levelization_dict=False
     return graph_circuit, symbol_table_nodes, list_input_node, list_output_node, fault_dict, levelization_dict
 
 
-def simulation(graph_circuit, list_input_node, list_output_node, symbol_table_nodes, dict_levelization, tv, fault_enable=False, fault_value=None):
+def simulation(graph_circuit, list_input_node, list_output_node, symbol_table_nodes, dict_levelization, tv, fault_enable=False, fault_value=None, ret_mc_sim=False):
     """
     Function that given the circuit, its levelization, and an input vector, simulates the circuit behavior and returns
     the output boolean values
@@ -361,7 +363,9 @@ def simulation(graph_circuit, list_input_node, list_output_node, symbol_table_no
     :param tv: input test vector
     :param fault_enable: flag that if active makes the simulation sensible to fault value
     :param fault_value: string representing the fault that has to be considered over the simulation
-    :return: dictionary that has output pins as keys and their boolean values associated accordingly
+    :param ret_mc_sim: flag that if true returns the Monte-Carlo simulation
+    :return: dictionary that has output pins as keys and their boolean values associated accordingly, dictionary that
+                has for each node its boolean value
     """
     # dictionary that keeps track of the boolean values for each node
     boolean_values = {}
@@ -443,7 +447,11 @@ def simulation(graph_circuit, list_input_node, list_output_node, symbol_table_no
         # save output pin and its boolean value in the dictionary
         out[output_node] = str(int(boolean_values[output_node]))
 
-    return out
+    # check if Monte-Carlo simulation is active
+    if not ret_mc_sim:
+        # if not, Null the dictionary
+        boolean_values = None
+    return out, boolean_values
 
 
 def get_gate_type(node_type):
@@ -473,8 +481,30 @@ def test_vector_rand(list_input_node):
     return tv
 
 
+def generate_test_vectors(list_input_node, num_vectors=1000):
+    """
+    Function that generates num_vectors randomly
+    :param list_input_node:
+    :param num_vectors:
+    :return:
+    """
+    TVs = []
+    # run num_vectors times
+    for _ in range(num_vectors):
+        # random TV generation
+        tv = test_vector_rand(list_input_node)
+        TVs.append(tv)
+    # return all TVs
+    return TVs
+
+
 def get_c0(nodes, dict_contr):
-    # TODO: comment
+    """
+    Function that given one or more nodes return its/their c0 values
+    :param nodes: nodes
+    :param dict_contr: dictionary with controllability values
+    :return:
+    """
     # list of c0 for all the nodes
     c0s = []
     # run over all the nodes
@@ -487,7 +517,12 @@ def get_c0(nodes, dict_contr):
 
 
 def get_c1(nodes, dict_contr):
-    # TODO: comment
+    """
+    Function that given one or more nodes return its/their c1 values
+    :param nodes: nodes
+    :param dict_contr: dictionary with controllability values
+    :return:
+    """
     # list of c1 for all the nodes
     c1s = []
     # run over all the nodes
@@ -500,7 +535,14 @@ def get_c1(nodes, dict_contr):
 
 
 def controllability(input_nodes, dict_contr, gate_type):
-    # TODO: comment
+    """
+    Function in charge of compute the controllability of one current node given the type of its gate
+    and the controllability of the inputs
+    :param input_nodes: input nodes
+    :param dict_contr: dictionary with contollability already computed
+    :param gate_type: type of the gate
+    :return:
+    """
     # controllability 0 and 1
     c0 = -1
     c1 = -1
@@ -572,7 +614,15 @@ def controllability(input_nodes, dict_contr, gate_type):
 
 
 def scoap_controllability(graph_circuit, symbol_table_nodes, list_input_node, list_output_node, dict_levelization):
-    # TODO: description of function
+    """
+    Function that given a circuit computes the SCOAP controllability
+    :param graph_circuit: graph model of the circuit
+    :param symbol_table_nodes: symbol table of the graph
+    :param list_input_node: list of input nodes
+    :param list_output_node: list of output nodes
+    :param dict_levelization: dictionary containing the levelization of the circuit
+    :return: dictionary containing the controllability of the circuit with the following structure node: (c0, c1)
+    """
     # dictionary for controllability values
     dict_contr = {}
 
@@ -592,6 +642,7 @@ def scoap_controllability(graph_circuit, symbol_table_nodes, list_input_node, li
             # save controllability into the dict
             dict_contr[node] = (c0, c1)
 
+    # return SCOAP controllability
     return dict_contr
 
 
@@ -627,43 +678,116 @@ def scoap(graph_circuit, symbol_table_nodes, list_input_node, list_output_node, 
     # Return results
     return contr, obs
 
+
+def init_cnt_nodes(dict_levelization):
+    """
+    Function that initializes a dictionary with node names as keys and zeros as values
+    :param dict_levelization: dictionary containing the levelization of the circuit
+    :return: dictionary with nodes as keys and list of two integers [int, int] needed to
+            count the number of logic 0's and logic 1's
+    """
+    # create dictionary
+    cnt_nodes = {}
+    # run over all nodes
+    for node in dict_levelization.keys():
+        # init counters for False, True boolean values respectively
+        cnt_nodes[node] = [0, 0]
+    # return
+    return cnt_nodes
+
+
+def plot_cmp(data):
+    """
+    Function that plots the difference between SCOAP controllability and Monte-Carlo simulation
+    on a chart
+    :param data:
+    :return:
+    """
+    # Extract nodes (keys) and values from the dictionary
+    nodes = list(data.keys())
+    values = list(data.values())
+
+    # Convert node labels to integer indices for plotting
+    index = np.arange(len(nodes))
+
+    # Create the line plot
+    plt.figure(figsize=(15, 8))
+    plt.plot(index, values, marker='o', linestyle='-', color='b', label="Value")
+
+    # Chart settings
+    plt.xlabel("Nodes")
+    plt.ylabel("Percentage (%)")
+    plt.title("Values per Node")
+    plt.xticks(index, nodes, rotation=90)
+    plt.ylim(0, 100)
+    plt.legend()
+
+    # Show the plot
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_scoap_vs_mc_sim(dict_cont, dict_mc, dict_levelization):
+    """
+    Function that given the results from SCOAP controllability and Monte-Carlo simulation
+    computes the difference and plots the results
+    :param dict_cont: SCOAP controllability results
+    :param dict_mc: Monte-Carlo results
+    :param dict_levelization: dictionary with levelization of the circuit
+    :return:
+    """
+    # dict for perc
+    perc_cmp = {}
+    # run over each node
+    for node in dict_cont.keys():
+        # compute perc of True values -> v1:max=x:100
+        perc_scoap = (dict_cont[node][1] * 100) / (dict_cont[node][1] + dict_cont[node][0])
+        perc_mc = (dict_mc[node][1] * 100) / (dict_mc[node][1] + dict_mc[node][0])
+        # save perc of both methods
+        perc_cmp[node] = [perc_scoap, perc_mc]
+
+    # plot results
+    diff = {}
+    # compute the difference and save it ordered by level (from inputs to outputs)
+    for node in dict(sorted(dict_levelization.items(), key=lambda item: item[1])).keys():
+        diff[node] = abs(perc_cmp[node][0] - perc_cmp[node][1])
+    # plot the difference
+    plot_cmp(diff)
+
+
 def main():
     # bench files
     file_names = ["p2.bench", "c432.bench"]
-    # file_names = [
-    #    "test_benches/BM01.bench",
-    #    "test_benches/BM02.bench",
-    #    "test_benches/BM03.bench",
-    #    "test_benches/c17.bench",
-    #    "test_benches/c432.bench",
-    #    "test_benches/c499.bench",
-    #    "test_benches/c880.bench",
-    #    "test_benches/c1355.bench",
-    #    "test_benches/c1908.bench",
-    #    "test_benches/c2670.bench",
-    #    "test_benches/c3540.bench",
-    #    "test_benches/c5315.bench",
-    #    "test_benches/c6288.bench",
-    #    "test_benches/c7552.bench",
-    #    "test_benches/hw1.bench",
-    #    "test_benches/test1.bench",
-    #    "test_benches/test2.bench"
-    #]
 
     for file_name in file_names:
         # parsing the circuit
         graph_circuit, symbol_table_nodes, list_input_node, list_output_node, fault_dict, dict_levelization = circuit_parsing(file_name, False, True)
         # SCOAP calculation
         dict_contr, dict_obs = scoap(graph_circuit, symbol_table_nodes, list_input_node, list_output_node, dict_levelization, True, False)
-        # Monte-Carlo simulation
-        # TODO: MC sim
+        # Monte-Carlo simulation with 1000 random input patterns
+        TVs = generate_test_vectors(list_input_node, 1000)
+        # init dictionary with counter (n0, n1) for each node
+        cnt_bool_val_nodes = init_cnt_nodes(dict_levelization)
+        for TV in TVs:
+            # run Monte-Carlo simulation
+            out, mc_sim = simulation(graph_circuit, list_input_node, list_output_node, symbol_table_nodes, dict_levelization, TV, ret_mc_sim=True)
+            # update counter
+            for node in mc_sim.keys():
+                # check boolean value of the current node
+                if mc_sim[node]:
+                    # True boolean value
+                    cnt_bool_val_nodes[node] = [cnt_bool_val_nodes[node][0], cnt_bool_val_nodes[node][1] + 1]
+                else:
+                    # False boolean value
+                    cnt_bool_val_nodes[node] = [cnt_bool_val_nodes[node][0] + 1, cnt_bool_val_nodes[node][1]]
 
-        print("\n\n=== Bench " + file_name + " ===")
         # print controllability
+        print("\n\n=== Bench " + file_name + " ===")
         for node in dict_contr:
             print("Node " + node + " -> (c0, c1) = " + str(dict_contr[node]))
-        # print Monte-Carlo simulation
-        # TODO: print MC sim
+
+        # print comparison between SCOAP controllability and Monte-Carlo simulation
+        plot_scoap_vs_mc_sim(dict_contr, cnt_bool_val_nodes, dict_levelization)
 
 
 main()
