@@ -82,7 +82,7 @@ def get_gate(line):
 
     :param line: String that should have the following format: out_node_name = GATE_TYPE(input_node_name1, ...)
     :return get_gate returns three information about the gate with the following order: output node name (str),
-            gate type (str), input node names (list). It the given line doesn't describe a gate, None is returned instead
+            gate type (str),input node names (list). It the given line doesn't describe a gate, None is returned instead
     """
     # Regex match verification
     match = re.search(gate_pattern, line)
@@ -236,7 +236,7 @@ def circuit_parsing(file_name, ret_fault_list=False, ret_levelization_dict=False
     :param ret_levelization_dict: flag for computing the levelization of the circuit
     :return: the function returns the graph that models the circuit, the associated symbol table, two lists
              (one for the input and one for the output nodes), the full fault list if the flag ret_fault_list is True
-             (None otherwise), and the levelization dictionary if the flag ret_levelization_dict is True (None otherwise)
+             (None otherwise),and the levelization dictionary if the flag ret_levelization_dict is True (None otherwise)
     """
 
     # lists for input and output nodes
@@ -323,7 +323,8 @@ def circuit_parsing(file_name, ret_fault_list=False, ret_levelization_dict=False
                 if ret_fault_list:
                     # add faults to fault list considering only input of the gate
                     for node_f in list_inputs:
-                        if node_f != output_node and node_f + "-" + output_node + "-0" not in list(chain.from_iterable(fault_dict.values())):
+                        if (node_f != output_node and node_f + "-" + output_node + "-0" not in
+                                list(chain.from_iterable(fault_dict.values()))):
                             if node_f not in fault_dict:
                                 fault_dict[node_f] = set()
                             fault_dict[output_node].add(output_node + "-" + node_f + "-0")
@@ -351,7 +352,8 @@ def circuit_parsing(file_name, ret_fault_list=False, ret_levelization_dict=False
     return graph_circuit, symbol_table_nodes, list_input_node, list_output_node, fault_dict, levelization_dict
 
 
-def simulation(graph_circuit, list_input_node, list_output_node, symbol_table_nodes, dict_levelization, tv, fault_enable=False, fault_value=None, ret_mc_sim=False):
+def simulation(graph_circuit, list_input_node, list_output_node, symbol_table_nodes, dict_levelization, tv,
+               fault_enable=False, fault_value=None, ret_mc_sim=False):
     """
     Function that given the circuit, its levelization, and an input vector, simulates the circuit behavior and returns
     the output boolean values
@@ -378,7 +380,9 @@ def simulation(graph_circuit, list_input_node, list_output_node, symbol_table_no
     # check if is needed to set a fault
     if fault_enable:
         # check if fault at the input, output or at the output of a gate
-        if len(fault_value.split("-")) == 2 or ( len(fault_value.split("-")) == 3 and fault_value.split("-")[1] == "OUT"):
+        if (len(fault_value.split("-")) == 2
+                or ( len(fault_value.split("-")) == 3
+                     and fault_value.split("-")[1] == "OUT")):
             # add the fault value
             if fault_value.split("-")[len(fault_value.split("-")) - 1] == "1":
                 boolean_values[fault_value.split("-")[0]] = True
@@ -396,7 +400,9 @@ def simulation(graph_circuit, list_input_node, list_output_node, symbol_table_no
             # check if fault enabled
             if fault_enable:
                 # check if a fault occurs at the inputs
-                if node == fault_value.split("-")[0] and len(fault_value.split("-")) == 3 and fault_value.split("-")[1] != "OUT":
+                if (node == fault_value.split("-")[0]
+                        and len(fault_value.split("-")) == 3
+                        and fault_value.split("-")[1] != "OUT"):
                     # get the input values
                     inputs = []
                     for input_node in graph_circuit.predecessors(node):
@@ -613,13 +619,11 @@ def controllability(input_nodes, dict_contr, gate_type):
     return c0, c1
 
 
-def scoap_controllability(graph_circuit, symbol_table_nodes, list_input_node, list_output_node, dict_levelization):
+def scoap_controllability(graph_circuit, symbol_table_nodes, dict_levelization):
     """
     Function that given a circuit computes the SCOAP controllability
     :param graph_circuit: graph model of the circuit
     :param symbol_table_nodes: symbol table of the graph
-    :param list_input_node: list of input nodes
-    :param list_output_node: list of output nodes
     :param dict_levelization: dictionary containing the levelization of the circuit
     :return: dictionary containing the controllability of the circuit with the following structure node: (c0, c1)
     """
@@ -635,8 +639,6 @@ def scoap_controllability(graph_circuit, symbol_table_nodes, list_input_node, li
         else:
             # get the inputs
             input_nodes = list(graph_circuit.predecessors(node))
-            # get the gate
-            gate = symbol_table_nodes[node]
             # compute controllability for current node
             c0, c1 = controllability(input_nodes, dict_contr, get_gate_type(symbol_table_nodes[node]))
             # save controllability into the dict
@@ -651,7 +653,8 @@ def scoap_observability(graph_circuit, symbol_table_nodes, list_input_node, list
     return {}
 
 
-def scoap(graph_circuit, symbol_table_nodes, list_input_node, list_output_node, dict_levelization, controllability_en, observability_en):
+def scoap(graph_circuit, symbol_table_nodes, list_input_node, list_output_node, dict_levelization,
+          controllability_en, observability_en):
     """
     Function that given a parsed circuit runs SCOAP analysis. Controllability and observability can be enableb by two
     flags
@@ -659,6 +662,7 @@ def scoap(graph_circuit, symbol_table_nodes, list_input_node, list_output_node, 
     :param symbol_table_nodes: symbol table nodes
     :param list_input_node: list of input nodes
     :param list_output_node: list of output nodes
+    :param dict_levelization: dictionary with the levelization
     :param controllability_en: flag for controllability mode
     :param observability_en: flag for observability mode
     :return: controllability and observability results respectively (None if disabled)
@@ -668,7 +672,8 @@ def scoap(graph_circuit, symbol_table_nodes, list_input_node, list_output_node, 
     # Check if SCOAP controllability flag is active
     if controllability_en:
         # Run controllability
-        contr =  scoap_controllability(graph_circuit, symbol_table_nodes, list_input_node, list_output_node, dict_levelization)
+        contr = scoap_controllability(graph_circuit, symbol_table_nodes,
+                                      dict_levelization)
 
     # Check if SCOAP observability flag is active
     if observability_en:
@@ -755,6 +760,32 @@ def plot_scoap_vs_mc_sim(dict_cont, dict_mc, dict_levelization):
     plot_cmp(diff)
 
 
+def print_mc_simulation_table(simulation_results, input_nodes, output_nodes):
+    """
+    Function that prints Monte-Carlo simulation with table format
+    :param simulation_results: Monte-Carlo simulation
+    :param input_nodes: list input nodes
+    :param output_nodes: list output nodes
+    :return:
+    """
+    # Get all nodes from the first entry of the simulation results to determine the order
+    all_nodes = input_nodes + output_nodes
+    for key in simulation_results:
+        all_nodes += [node for node in simulation_results[key].keys() if node not in all_nodes]
+    all_nodes = list(dict.fromkeys(all_nodes))  # Remove duplicates while preserving order
+
+    # Print table header
+    header = "Input Pattern".ljust(15) + " | ".join(node.ljust(8) for node in all_nodes)
+    print(header)
+    print("-" * len(header))
+
+    # Print each row of the table
+    for inp_p, node_values in simulation_results.items():
+        row = inp_p.ljust(15)  # Start with the input pattern
+        row += " | ".join(str(int(node_values.get(node, False))).ljust(8) for node in all_nodes)
+        print(row)
+
+
 def main():
     # bench files
     file_names = ["p2.bench", "c432.bench"]
@@ -762,32 +793,76 @@ def main():
     for file_name in file_names:
         # parsing the circuit
         graph_circuit, symbol_table_nodes, list_input_node, list_output_node, fault_dict, dict_levelization = circuit_parsing(file_name, False, True)
+
+        ################################################################################################################
+        ################################################################################################################
+        ################################################################################################################
         # SCOAP calculation
         dict_contr, dict_obs = scoap(graph_circuit, symbol_table_nodes, list_input_node, list_output_node, dict_levelization, True, False)
-        # Monte-Carlo simulation with 1000 random input patterns
-        TVs = generate_test_vectors(list_input_node, 1000)
-        # init dictionary with counter (n0, n1) for each node
-        cnt_bool_val_nodes = init_cnt_nodes(dict_levelization)
-        for TV in TVs:
-            # run Monte-Carlo simulation
-            out, mc_sim = simulation(graph_circuit, list_input_node, list_output_node, symbol_table_nodes, dict_levelization, TV, ret_mc_sim=True)
-            # update counter
-            for node in mc_sim.keys():
-                # check boolean value of the current node
-                if mc_sim[node]:
-                    # True boolean value
-                    cnt_bool_val_nodes[node] = [cnt_bool_val_nodes[node][0], cnt_bool_val_nodes[node][1] + 1]
-                else:
-                    # False boolean value
-                    cnt_bool_val_nodes[node] = [cnt_bool_val_nodes[node][0] + 1, cnt_bool_val_nodes[node][1]]
 
         # print controllability
         print("\n\n=== Bench " + file_name + " ===")
         for node in dict_contr:
             print("Node " + node + " -> (c0, c1) = " + str(dict_contr[node]))
 
-        # print comparison between SCOAP controllability and Monte-Carlo simulation
-        plot_scoap_vs_mc_sim(dict_contr, cnt_bool_val_nodes, dict_levelization)
+        ################################################################################################################
+        ################################################################################################################
+        ################################################################################################################
+        # MC simulation
+        mc_sim = {}
+        if 2 ** len(list_input_node) > 1000:
+            # Monte-Carlo simulation with 1000 random input patterns
+            TVs = generate_test_vectors(list_input_node, 1000)
+            # init dictionary with counter (n0, n1) for each node
+            cnt_bool_val_nodes = init_cnt_nodes(dict_levelization)
+            for TV in TVs:
+                # run Monte-Carlo simulation
+                out, res = simulation(graph_circuit, list_input_node, list_output_node, symbol_table_nodes,
+                                      dict_levelization, TV, ret_mc_sim=True)
+                mc_sim[TV] = res
+                # update counter
+                for node in res.keys():
+                    # check boolean value of the current node
+                    if res[node]:
+                        # True boolean value
+                        cnt_bool_val_nodes[node] = [cnt_bool_val_nodes[node][0], cnt_bool_val_nodes[node][1] + 1]
+                    else:
+                        # False boolean value
+                        cnt_bool_val_nodes[node] = [cnt_bool_val_nodes[node][0] + 1, cnt_bool_val_nodes[node][1]]
+
+            # print MC simulation
+            print_mc_simulation_table(mc_sim, list_input_node, list_output_node)
+            # print comparison between SCOAP controllability and Monte-Carlo simulation
+            plot_scoap_vs_mc_sim(dict_contr, cnt_bool_val_nodes, dict_levelization)
+        else:
+            # init dictionary with counter (n0, n1) for each node
+            cnt_bool_val_nodes = init_cnt_nodes(dict_levelization)
+            # generation of all stimuli with for n inputs
+            for i in range(2 ** len(list_input_node)):
+                # Format the number as a binary string with leading zeros
+                input_vector = f"{i:0{len(list_input_node)}b}"
+                # run Monte-Carlo simulation
+                out, res = simulation(graph_circuit, list_input_node, list_output_node, symbol_table_nodes,
+                                         dict_levelization, input_vector, ret_mc_sim=True)
+                mc_sim[input_vector] = res
+                # update counter
+                for node in res.keys():
+                    # check boolean value of the current node
+                    if res[node]:
+                        # True boolean value
+                        cnt_bool_val_nodes[node] = [cnt_bool_val_nodes[node][0], cnt_bool_val_nodes[node][1] + 1]
+                    else:
+                        # False boolean value
+                        cnt_bool_val_nodes[node] = [cnt_bool_val_nodes[node][0] + 1, cnt_bool_val_nodes[node][1]]
+
+            # print MC simulation
+            print_mc_simulation_table(mc_sim, list_input_node, list_output_node)
+            # print comparison between SCOAP controllability and Monte-Carlo simulation
+            plot_scoap_vs_mc_sim(dict_contr, cnt_bool_val_nodes, dict_levelization)
+
+    ################################################################################################################
+    ################################################################################################################
+    ################################################################################################################
 
 
 main()
